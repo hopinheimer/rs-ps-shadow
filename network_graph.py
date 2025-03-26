@@ -124,8 +124,7 @@ target_conn = int(sys.argv[2])
 msg_size = int(sys.argv[3])
 num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
-d_announce = int(sys.argv[6])
-interval = int(sys.argv[7])
+interval = int(sys.argv[6])
 
 ids = {}
 for node_type in node_types:
