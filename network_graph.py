@@ -4,6 +4,8 @@ import random
 import networkx as nx
 import sys
 import yaml
+import re
+import networkx.readwrite.gml as gml
 
 G = nx.DiGraph()
 
@@ -130,7 +132,7 @@ for node_type in node_types:
     for location in locations:
         name = f"{location.name}-{node_type.name}"
         ids[name] = len(ids)
-        G.add_node(name, host_bandwidth_up=f"{node_type.upload_bw} Mbit", host_bandwidth_down=f"{node_type.download_bw} Mbit")
+        G.add_node(name, hostBandwidthUp=f"{node_type.upload_bw} Mbit", hostBandwidthDown=f"{node_type.download_bw} Mbit")
 
 for t1 in node_types:
     for t2 in node_types:
@@ -138,11 +140,24 @@ for t1 in node_types:
             G.add_edge(f"{edge.src.name}-{t1.name}", f"{edge.dst.name}-{t2.name}",
                        label=f"{edge.src.name}-{t1.name} to {edge.dst.name}-{t2.name}",
                        latency=f"{edge.latency} ms",
-                       packet_loss=0.0)
+                       packetLoss=0.0)
 
 with open("graph.gml", "w") as file:
     file.write("\n".join(nx.generate_gml(G)))
     file.close
+
+with open("graph.gml", "r") as file:
+    gml_text = file.read()
+
+# Replace temporary keys back to snake_case.
+gml_text = gml_text.replace("hostBandwidthUp", "host_bandwidth_up")
+gml_text = gml_text.replace("hostBandwidthDown", "host_bandwidth_down")
+gml_text = gml_text.replace("packetLoss", "packet_loss")
+
+
+with open("graph.gml", "w") as file:
+    file.write(gml_text)
+
 
 with open("shadow.template.yaml", "r") as file:
     config = yaml.safe_load(file)
@@ -160,9 +175,8 @@ for i in range(node_count):
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
-            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval}",
             "expected_final_state": "running",
-            "path": "./pubsub-shadow",
+            "path": "./target/debug/rs-ps-shadow",
         }],
     }
 

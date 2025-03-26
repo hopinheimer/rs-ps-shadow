@@ -15,7 +15,7 @@ for kb in 128 256 512 1024 2048 4096 8192; do
       else
          interval=1500
       fi
-      python3 network_graph.py 1000 35 $result 1 $D $announce $interval
+      python3 network_graph.py 10 10 $result 1 $D $announce $interval
 
       shadow --progress true -d $filename.data shadow.yaml
 
@@ -35,7 +35,7 @@ for announce in 0 $(($D - 1)) $D; do
     else
        interval=1500
     fi
-    python3 network_graph.py 1000 35 $result $num_msgs $D $announce $interval
+    python3 network_graph.py 10 10 $result $num_msgs $D $announce $interval
 
     shadow --progress true -d $filename.data shadow.yaml
 
