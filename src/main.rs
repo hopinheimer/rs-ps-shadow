@@ -7,6 +7,8 @@ use libp2p::gossipsub::MessageAuthenticity;
 use std::net::ToSocketAddrs;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use tokio::{select , time::sleep};
+use rand::Rng;
+use sha2::{Digest, Sha256};
 
 
 #[derive(Parser,Debug)]
@@ -57,6 +59,7 @@ fn get_node_id_from_hostname() -> u64 {
 
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
+    let opts = Opts::parse();
 
     let node_id = get_node_id_from_hostname();
     println!("Starting node with id: {}", node_id);
@@ -65,7 +68,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
     let local_peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", local_peer_id);
 
-    let opts = Opts::parse();
     
 
     let private_key = identity::Keypair::generate_ed25519();
@@ -76,9 +78,10 @@ async fn main()-> Result<(), Box<dyn Error>>{
         .authenticate(noise::Config::new(&private_key)
             .expect("infallible"))
         .multiplex(yamux_config)
-        .timeout(std::time::Duration::from_secs(20));
+        .timeout(Duration::from_secs(30));
 
-    let gossipsub = {
+
+    let mut gossipsub = {
         let gossipsub_config = gossipsub::ConfigBuilder::default()
             .validation_mode(gossipsub::ValidationMode::Anonymous)
             .build()
@@ -86,6 +89,11 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
         gossipsub::Behaviour::new(MessageAuthenticity::Anonymous, gossipsub_config).expect("yos?")
     };
+
+    let pubsub_topic = "pubsub";
+    
+    let topic = gossipsub::IdentTopic::new(pubsub_topic);
+    gossipsub.subscribe(&topic).unwrap();
 
     let mut swarm = {
         let builder = SwarmBuilder::with_existing_identity(private_key)
@@ -106,7 +114,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
     let mut connected = 0;
     let mut tried = std::collections::HashSet::new();
 
-    while connected < opts.count {
+    while connected < opts.target {
         let peer_id_guess = rand::random::<u64>() % opts.count;
         if peer_id_guess == node_id || tried.contains(&peer_id_guess) {
             continue;
@@ -118,7 +126,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
             for addr in addrs {
                 let ip = addr.ip();
                 let peer_id = reconstruct_peer_id(peer_id_guess); 
-                let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000/p2p/{}", ip, peer_id)
+                let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000", ip)
                     .parse().unwrap();
 
                 println!("Dialing {:?}", multiaddr);
@@ -136,15 +144,40 @@ async fn main()-> Result<(), Box<dyn Error>>{
             }
         }
     }
-    
-    
 
+    println!("discovery complete");
+
+//    sleep(Duration::from_secs(45)).await;
+
+
+    if node_id == 0 {
+
+        println!("trying to publish message");
+        for _ in 0..opts.n {
+            let mut msg = vec![0u8; opts.size];
+            rand::thread_rng().fill(&mut msg[..]);
+
+            match swarm.behaviour_mut().gossipsub.publish(topic.clone(), msg.clone()) {
+                Ok(_) => {
+                    println!(
+                        "published msg (topic: {}, id: {})",
+                        topic,
+                        hex::encode(Sha256::digest(&msg))
+                    );
+                }
+                Err(e) => {
+                    eprintln!("failed to publish message: {:?}", e);
+                }
+            }
+        }
+    }
+    
     loop{
         select!{
             event = swarm.select_next_some() => {
                 match event{
                     SwarmEvent::NewListenAddr{address, ..} => {
-                        println!("Listening on {:?}", address);
+                        println!("listening on {:?}", address);
                     }
                     SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
                         propagation_source: peer_id,
@@ -158,7 +191,9 @@ async fn main()-> Result<(), Box<dyn Error>>{
                             peer_id
                         )
                     }
-                    _ =>{}
+                    _ =>{
+                        println!("event{:?}",event);
+                    }
                 }
             }
         }

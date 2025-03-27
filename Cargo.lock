@@ -2696,6 +2696,7 @@ dependencies = [
  "libp2p",
  "log",
  "rand 0.8.5",
+ "sha2",
  "tokio",
  "tracing",
  "tracing-subscriber",

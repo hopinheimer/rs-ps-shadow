@@ -174,6 +174,7 @@ for i in range(node_count):
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
+            "args": f"--count {node_count} --target {target_conn} --n {num_msgs} --size {msg_size} --d {d_mesh} --interval {interval}",
             "expected_final_state": "running",
             "path": "./target/debug/rs-ps-shadow",
         }],
