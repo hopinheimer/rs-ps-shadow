@@ -2686,6 +2686,7 @@ dependencies = [
 name = "rs-ps-shadow"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "chrono",
  "clap",
  "either",

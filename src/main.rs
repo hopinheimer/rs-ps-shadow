@@ -1,19 +1,22 @@
 use std::error::Error;
+use std::time::Duration;
 use clap::Parser;
 use futures::StreamExt;
-use libp2p::{core, gossipsub, identity, noise, yamux, SwarmBuilder, Transport};
+use libp2p::{core, gossipsub, identity, noise, yamux, SwarmBuilder, Transport, PeerId, Multiaddr};
 use libp2p::gossipsub::MessageAuthenticity;
+use std::net::ToSocketAddrs;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
-use tokio::select;
+use tokio::{select , time::sleep};
+
 
 #[derive(Parser,Debug)]
 struct Opts {
 
-    #[arg(long, default_value = "5000")]
-    count: usize,
+    #[arg(long, default_value = "10")]
+    count: u64,
 
-    #[arg(long, default_value = "70")]
-    target: usize,
+    #[arg(long, default_value = "8")]
+    target: u64,
 
     #[arg(long, default_value = "8")]
     d: usize,
@@ -33,10 +36,37 @@ struct MyBehaviour{
     gossipsub: gossipsub::Behaviour
 }
 
+
+fn deterministic_keypair(id: u64) -> identity::Keypair {
+    
+    let mut seed = [0u8; 32];
+    seed[..8].copy_from_slice(&id.to_le_bytes());
+    identity::Keypair::ed25519_from_bytes(&mut seed).expect("infallible")
+
+}
+
+fn reconstruct_peer_id(id: u64) -> PeerId {
+    PeerId::from(deterministic_keypair(id).public())
+}
+
+fn get_node_id_from_hostname() -> u64 {
+    let hostname = hostname::get().unwrap().to_str().unwrap().to_string();
+    let node_id_str = hostname.trim_start_matches("node");
+    node_id_str.parse::<u64>().expect("Hostname must be in format node{id}")
+}
+
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
 
+    let node_id = get_node_id_from_hostname();
+    println!("Starting node with id: {}", node_id);
+
+    let id_keys = deterministic_keypair(node_id);
+    let local_peer_id = PeerId::from(id_keys.public());
+    println!("Local peer id: {:?}", local_peer_id);
+
     let opts = Opts::parse();
+    
 
     let private_key = identity::Keypair::generate_ed25519();
     let yamux_config = yamux::Config::default();
@@ -70,6 +100,44 @@ async fn main()-> Result<(), Box<dyn Error>>{
     };
 
     swarm.listen_on("/ip4/0.0.0.0/tcp/9000".parse()?)?;
+
+    sleep(Duration::from_secs(30)).await;
+
+    let mut connected = 0;
+    let mut tried = std::collections::HashSet::new();
+
+    while connected < opts.count {
+        let peer_id_guess = rand::random::<u64>() % opts.count;
+        if peer_id_guess == node_id || tried.contains(&peer_id_guess) {
+            continue;
+        }
+        tried.insert(peer_id_guess);
+
+        let hostname = format!("node{}", peer_id_guess);
+        if let Ok(addrs) = (hostname.as_str(), 9000).to_socket_addrs() {
+            for addr in addrs {
+                let ip = addr.ip();
+                let peer_id = reconstruct_peer_id(peer_id_guess); 
+                let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000/p2p/{}", ip, peer_id)
+                    .parse().unwrap();
+
+                println!("Dialing {:?}", multiaddr);
+                match swarm.dial(multiaddr) {
+                    Ok(_) => {
+                        connected += 1;
+                        println!("Connected to node{}", peer_id_guess);
+                        break;
+                    }
+                    Err(_) => {
+
+                        // no-ops
+                    }
+                }
+            }
+        }
+    }
+    
+    
 
     loop{
         select!{
