@@ -1,4 +1,5 @@
 use std::error::Error;
+use chrono::Local;
 use std::time::Duration;
 use clap::Parser;
 use futures::StreamExt;
@@ -59,6 +60,7 @@ fn get_node_id_from_hostname() -> u64 {
 
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
+    println!("simulation start time {}", Local::now().to_rfc3339());
     let opts = Opts::parse();
 
     let node_id = get_node_id_from_hostname();
@@ -109,8 +111,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
     swarm.listen_on("/ip4/0.0.0.0/tcp/9000".parse()?)?;
 
-    sleep(Duration::from_secs(30)).await;
-
     let mut connected = 0;
     let mut tried = std::collections::HashSet::new();
 
@@ -125,7 +125,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
         if let Ok(addrs) = (hostname.as_str(), 9000).to_socket_addrs() {
             for addr in addrs {
                 let ip = addr.ip();
-                let peer_id = reconstruct_peer_id(peer_id_guess); 
                 let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000", ip)
                     .parse().unwrap();
 
@@ -171,7 +170,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
             }
         }
     }
-    
+     
     loop{
         select!{
             event = swarm.select_next_some() => {
@@ -192,7 +191,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                         )
                     }
                     _ =>{
-                        println!("event{:?}",event);
+                        println!("event: {:?}",event);
                     }
                 }
             }
