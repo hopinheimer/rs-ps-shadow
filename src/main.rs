@@ -150,27 +150,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
 //    sleep(Duration::from_secs(45)).await;
 
 
-    if node_id == 0 {
-
-        println!("trying to publish message");
-        for _ in 0..opts.n {
-            let mut msg = vec![0u8; opts.size];
-            rand::thread_rng().fill(&mut msg[..]);
-
-            match swarm.behaviour_mut().gossipsub.publish(topic.clone(), msg.clone()) {
-                Ok(_) => {
-                    println!(
-                        "published msg (topic: {}, id: {})",
-                        topic,
-                        hex::encode(Sha256::digest(&msg))
-                    );
-                }
-                Err(e) => {
-                    eprintln!("failed to publish message: {:?}", e);
-                }
-            }
-        }
-    }
      
 //    loop{
 //        select!{
@@ -199,6 +178,8 @@ async fn main()-> Result<(), Box<dyn Error>>{
 //        }
 //    }
 
+    let mut published = false;
+
     loop {
         select!{
             event = swarm.select_next_some() => {
@@ -210,6 +191,28 @@ async fn main()-> Result<(), Box<dyn Error>>{
                     _ => { println!("random event")}
                 }
             }
+        }
+        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.n {
+
+            println!("trying to publish message");
+            for _ in 0..opts.n {
+                let mut msg = vec![0u8; opts.size];
+                rand::thread_rng().fill(&mut msg[..]);
+
+                match swarm.behaviour_mut().gossipsub.publish(topic.clone(), msg.clone()) {
+                    Ok(_) => {
+                        println!(
+                            "published msg (topic: {}, id: {})",
+                            topic,
+                            hex::encode(Sha256::digest(&msg))
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("failed to publish message: {:?}", e);
+                    }
+                }
+            }
+            published = true;
         }
     }
 }
