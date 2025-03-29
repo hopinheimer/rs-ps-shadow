@@ -188,7 +188,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                         println!("listening on {:?}", address);
                     }
                     SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossip_event)) => {parse_gossip(gossip_event);}
-                    _ => { println!("random event")}
+                    _ => { println!("random event: {:?}", event)}
                 }
             }
         }
