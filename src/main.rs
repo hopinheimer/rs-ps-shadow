@@ -94,6 +94,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
     let pubsub_topic = "pubsub";
     
+    
     let topic = gossipsub::IdentTopic::new(pubsub_topic);
     gossipsub.subscribe(&topic).unwrap();
 
@@ -171,30 +172,56 @@ async fn main()-> Result<(), Box<dyn Error>>{
         }
     }
      
-    loop{
+//    loop{
+//        select!{
+//            event = swarm.select_next_some() => {
+//                match event{
+//                    SwarmEvent::NewListenAddr{address, ..} => {
+//                        println!("listening on {:?}", address);
+//                    }
+//                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+//                        propagation_source: peer_id,
+//                        message_id: id,
+//                        message,
+//                    })) => {
+//                        println!(
+//                            "Got message: {} with id: {} from peer: {:?}",
+//                            String::from_utf8_lossy(&message.data),
+//                            id,
+//                            peer_id
+//                        )
+//                    }
+//                    _ =>{
+//                        println!("event: {:?}",event);
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    loop {
         select!{
             event = swarm.select_next_some() => {
-                match event{
+                match event {
                     SwarmEvent::NewListenAddr{address, ..} => {
                         println!("listening on {:?}", address);
                     }
-                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-                        propagation_source: peer_id,
-                        message_id: id,
-                        message,
-                    })) => {
-                        println!(
-                            "Got message: {} with id: {} from peer: {:?}",
-                            String::from_utf8_lossy(&message.data),
-                            id,
-                            peer_id
-                        )
-                    }
-                    _ =>{
-                        println!("event: {:?}",event);
-                    }
+                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossip_event)) => {parse_gossip(gossip_event);}
+                    _ => { println!("random event")}
                 }
             }
         }
+    }
+}
+
+fn parse_gossip(event: gossipsub::Event){
+
+    match event {
+        gossipsub::Event::Message { propagation_source, message_id, message } => { println!("event {:?}", message)}
+        gossipsub::Event::Subscribed { peer_id, topic } => { println!("subscribed: topic={:?}", topic)}
+        gossipsub::Event::Unsubscribed { peer_id, topic } => { println!("event {:?}", topic)}
+        gossipsub::Event::SlowPeer { peer_id, failed_messages } => { println!("event {:?}", peer_id)}
+        gossipsub::Event::GossipsubNotSupported { peer_id } => { println!("event {:?}", peer_id)}
+        
     }
 }
