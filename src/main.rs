@@ -1,4 +1,5 @@
 use std::error::Error;
+use tracing::info;
 use chrono::Local;
 use std::time::Duration;
 use clap::Parser;
@@ -42,7 +43,7 @@ struct MyBehaviour{
 
 
 fn deterministic_keypair(id: u64) -> identity::Keypair {
-    
+
     let mut seed = [0u8; 32];
     seed[..8].copy_from_slice(&id.to_le_bytes());
     identity::Keypair::ed25519_from_bytes(&mut seed).expect("infallible")
@@ -61,20 +62,20 @@ fn get_node_id_from_hostname() -> u64 {
 
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
-    println!("simulation start time {}", Local::now().to_rfc3339());
+    info!("simulation start time {}", Local::now().to_rfc3339());
     let opts = Opts::parse();
 
     let node_id = get_node_id_from_hostname();
-    println!("Starting node with id: {}", node_id);
+    info!("Starting node with id: {}", node_id);
 
     let id_keys = deterministic_keypair(node_id);
     let local_peer_id = PeerId::from(id_keys.public());
-    println!("Local peer id: {:?}", local_peer_id);
+    info!("Local peer id: {:?}", local_peer_id);
 
 
 
     let _ = tracing_subscriber::fmt()
-        .compact()
+        .json()
         .with_env_filter(EnvFilter::new("debug"))
         .try_init();
 
@@ -105,8 +106,8 @@ async fn main()-> Result<(), Box<dyn Error>>{
     };
 
     let pubsub_topic = "pubsub";
-    
-    
+
+
     let topic = gossipsub::IdentTopic::new(pubsub_topic);
     gossipsub.subscribe(&topic).unwrap();
 
@@ -141,11 +142,11 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000", ip)
                     .parse().unwrap();
 
-                println!("Dialing {:?}", multiaddr);
+                info!("Dialing {:?}", multiaddr);
                 match swarm.dial(multiaddr) {
                     Ok(_) => {
                         connected += 1;
-                        println!("Connected to node{}", peer_id_guess);
+                        info!("Connected to node{}", peer_id_guess);
                         break;
                     }
                     Err(_) => {
@@ -157,7 +158,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
         }
     }
 
-    println!("discovery complete");
+    info!("discovery complete");
 
     let mut published = false;
 
@@ -166,16 +167,16 @@ async fn main()-> Result<(), Box<dyn Error>>{
             event = swarm.select_next_some() => {
                 match event {
                     SwarmEvent::NewListenAddr{address, ..} => {
-                        println!("listening on {:?}", address);
+                        info!("listening on {:?}", address);
                     }
                     SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossip_event)) => {parse_gossip(gossip_event);}
-                    _ => { println!("random event: {:?}", event)}
+                    _ => { info!("random event: {:?}", event)}
                 }
             }
         }
         if node_id == 0 && !published && swarm.connected_peers().count()>=opts.d {
 
-            println!("trying to publish message");
+            info!("trying to publish message");
             let mut msg = vec![0u8; opts.size];
             rand::thread_rng().fill(&mut msg[..]);
 
@@ -184,7 +185,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 .gossipsub
                 .publish(topic.clone(), msg.clone()) {
                 Ok(message) => {
-                    println!(
+                    info!(
                         "published msg (topic: {}, id: {}, message: {})",
                         topic,
                         hex::encode(Sha256::digest(&msg)),
@@ -192,10 +193,10 @@ async fn main()-> Result<(), Box<dyn Error>>{
                     );
                 }
                 Err(e) => {
-                    eprintln!("failed to publish message: {:?}", e);
+                    info!("failed to publish message: {:?}", e);
                 }
             }
-            println!("published");
+            //info!("published");
             published = true;
         }
     }
@@ -204,11 +205,11 @@ async fn main()-> Result<(), Box<dyn Error>>{
 fn parse_gossip(event: gossipsub::Event){
 
     match event {
-        gossipsub::Event::Message { propagation_source, message_id, message } => { println!("event {:?}", message)}
-        gossipsub::Event::Subscribed { peer_id, topic } => { println!("subscribed: topic={:?}", topic)}
-        gossipsub::Event::Unsubscribed { peer_id, topic } => { println!("event {:?}", topic)}
-        gossipsub::Event::SlowPeer { peer_id, failed_messages } => { println!("event {:?}", peer_id)}
-        gossipsub::Event::GossipsubNotSupported { peer_id } => { println!("event {:?}", peer_id)}
-        
+        gossipsub::Event::Message { propagation_source, message_id, message } => { info!("event {:?}", message)}
+        gossipsub::Event::Subscribed { peer_id, topic } => { info!("subscribed: topic={:?}", topic)}
+        gossipsub::Event::Unsubscribed { peer_id, topic } => { info!("event {:?}", topic)}
+        gossipsub::Event::SlowPeer { peer_id, failed_messages } => { info!("event {:?}", peer_id)}
+        gossipsub::Event::GossipsubNotSupported { peer_id } => { info!("event {:?}", peer_id)}
+
     }
 }
