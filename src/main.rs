@@ -7,9 +7,10 @@ use libp2p::{core, gossipsub, identity, noise, yamux, SwarmBuilder, Transport, P
 use libp2p::gossipsub::MessageAuthenticity;
 use std::net::ToSocketAddrs;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
-use tokio::{select , time::sleep};
+use tokio::select;
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use tracing_subscriber::EnvFilter;
 
 
 #[derive(Parser,Debug)]
@@ -70,7 +71,12 @@ async fn main()-> Result<(), Box<dyn Error>>{
     let local_peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", local_peer_id);
 
-    
+
+
+    let _ = tracing_subscriber::fmt()
+        .compact()
+        .with_env_filter(EnvFilter::new("debug"))
+        .try_init();
 
     let private_key = identity::Keypair::generate_ed25519();
     let yamux_config = yamux::Config::default();
@@ -84,7 +90,13 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
 
     let mut gossipsub = {
-        let gossipsub_config = gossipsub::ConfigBuilder::default()
+
+        let gossipsub_config = gossipsub::ConfigBuilder::default() 
+            .mesh_n(opts.d)
+            .mesh_n_low(opts.d - 2)
+            .mesh_n_high(opts.d + 4)
+            .max_transmit_size(10*1024*1024)
+            .heartbeat_interval(Duration::from_millis(opts.interval))
             .validation_mode(gossipsub::ValidationMode::Anonymous)
             .build()
             .expect("infallible");
@@ -147,37 +159,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
     println!("discovery complete");
 
-//    sleep(Duration::from_secs(45)).await;
-
-
-     
-//    loop{
-//        select!{
-//            event = swarm.select_next_some() => {
-//                match event{
-//                    SwarmEvent::NewListenAddr{address, ..} => {
-//                        println!("listening on {:?}", address);
-//                    }
-//                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-//                        propagation_source: peer_id,
-//                        message_id: id,
-//                        message,
-//                    })) => {
-//                        println!(
-//                            "Got message: {} with id: {} from peer: {:?}",
-//                            String::from_utf8_lossy(&message.data),
-//                            id,
-//                            peer_id
-//                        )
-//                    }
-//                    _ =>{
-//                        println!("event: {:?}",event);
-//                    }
-//                }
-//            }
-//        }
-//    }
-
     let mut published = false;
 
     loop {
@@ -192,26 +173,29 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 }
             }
         }
-        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.n {
+        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.d {
 
             println!("trying to publish message");
-            for _ in 0..opts.n {
-                let mut msg = vec![0u8; opts.size];
-                rand::thread_rng().fill(&mut msg[..]);
+            let mut msg = vec![0u8; opts.size];
+            rand::thread_rng().fill(&mut msg[..]);
 
-                match swarm.behaviour_mut().gossipsub.publish(topic.clone(), msg.clone()) {
-                    Ok(_) => {
-                        println!(
-                            "published msg (topic: {}, id: {})",
-                            topic,
-                            hex::encode(Sha256::digest(&msg))
-                        );
-                    }
-                    Err(e) => {
-                        eprintln!("failed to publish message: {:?}", e);
-                    }
+            match swarm
+                .behaviour_mut()
+                .gossipsub
+                .publish(topic.clone(), msg.clone()) {
+                Ok(message) => {
+                    println!(
+                        "published msg (topic: {}, id: {}, message: {})",
+                        topic,
+                        hex::encode(Sha256::digest(&msg)),
+                        message
+                    );
+                }
+                Err(e) => {
+                    eprintln!("failed to publish message: {:?}", e);
                 }
             }
+            println!("published");
             published = true;
         }
     }
