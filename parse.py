@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import json
-
+import re
+import sys
+import requests
+PUSHGATEWAY_URL = "http://31.220.102.41:9091/metrics/job/shadow_sim"
 def count_control_messages(log_path):
     """
     Parse a Rust libp2p log file (one JSON object per line) and
@@ -46,11 +49,22 @@ def count_control_messages(log_path):
     return counters
 
 def main():
-    log_file = "rs-ps-shadow-data-1000.stdout"
-    results = count_control_messages(log_file)
-    print("Control message counts:")
-    for k, v in results.items():
-        print(f"  {k}: {v}")
+#    log_file = "rs-ps-shadow-data-1000.stdout"
+#    results = count_control_messages(log_file)
+#    print("Control message counts:")
+#    for k, v in results.items():
+#        print(f"  {k}: {v}")
+#
+    for line in sys.stdin:
+        if "message" in line:
+            match = re.search("Message already received", line)
+            data = """# HELP shadow_messages_sent The number of messages sent.
+# TYPE shadow_messages_sent counter
+shadow_messages_sent{node_id="test"} 42
+"""
+            resp = requests.post(PUSHGATEWAY_URL, data=data)
+            if resp.status_code not in [200, 202]:
+                print("Pushgateway error:", resp.status_code, resp.text)
 
 if __name__ == "__main__":
     main()

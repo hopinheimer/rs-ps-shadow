@@ -21,7 +21,7 @@ struct Opts {
     count: u64,
 
     #[arg(long, default_value = "8")]
-    target: u64,
+    target: usize,
 
     #[arg(long, default_value = "8")]
     d: usize,
@@ -174,7 +174,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 }
             }
         }
-        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.d {
+        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.target {
 
             info!("trying to publish message");
             let mut msg = vec![0u8; opts.size];
@@ -193,6 +193,8 @@ async fn main()-> Result<(), Box<dyn Error>>{
                     );
                 }
                 Err(e) => {
+                    info!("Number of peers in topic {}: {}", topic, swarm.connected_peers().count());
+
                     info!("failed to publish message: {:?}", e);
                 }
             }
