@@ -1,4 +1,5 @@
 use std::error::Error;
+use tracing::info;
 use chrono::Local;
 use std::time::Duration;
 use clap::Parser;
@@ -7,9 +8,10 @@ use libp2p::{core, gossipsub, identity, noise, yamux, SwarmBuilder, Transport, P
 use libp2p::gossipsub::MessageAuthenticity;
 use std::net::ToSocketAddrs;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
-use tokio::{select , time::sleep};
+use tokio::select;
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use tracing_subscriber::EnvFilter;
 
 
 #[derive(Parser,Debug)]
@@ -19,7 +21,7 @@ struct Opts {
     count: u64,
 
     #[arg(long, default_value = "8")]
-    target: u64,
+    target: usize,
 
     #[arg(long, default_value = "8")]
     d: usize,
@@ -41,7 +43,7 @@ struct MyBehaviour{
 
 
 fn deterministic_keypair(id: u64) -> identity::Keypair {
-    
+
     let mut seed = [0u8; 32];
     seed[..8].copy_from_slice(&id.to_le_bytes());
     identity::Keypair::ed25519_from_bytes(&mut seed).expect("infallible")
@@ -60,17 +62,22 @@ fn get_node_id_from_hostname() -> u64 {
 
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
-    println!("simulation start time {}", Local::now().to_rfc3339());
+    info!("simulation start time {}", Local::now().to_rfc3339());
     let opts = Opts::parse();
 
     let node_id = get_node_id_from_hostname();
-    println!("Starting node with id: {}", node_id);
+    info!("Starting node with id: {}", node_id);
 
     let id_keys = deterministic_keypair(node_id);
     let local_peer_id = PeerId::from(id_keys.public());
-    println!("Local peer id: {:?}", local_peer_id);
+    info!("Local peer id: {:?}", local_peer_id);
 
-    
+
+
+    let _ = tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(EnvFilter::new("debug"))
+        .try_init();
 
     let private_key = identity::Keypair::generate_ed25519();
     let yamux_config = yamux::Config::default();
@@ -84,7 +91,13 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
 
     let mut gossipsub = {
-        let gossipsub_config = gossipsub::ConfigBuilder::default()
+
+        let gossipsub_config = gossipsub::ConfigBuilder::default() 
+            .mesh_n(opts.d)
+            .mesh_n_low(opts.d - 2)
+            .mesh_n_high(opts.d + 4)
+            .max_transmit_size(10*1024*1024)
+            .heartbeat_interval(Duration::from_millis(opts.interval))
             .validation_mode(gossipsub::ValidationMode::Anonymous)
             .build()
             .expect("infallible");
@@ -93,8 +106,8 @@ async fn main()-> Result<(), Box<dyn Error>>{
     };
 
     let pubsub_topic = "pubsub";
-    
-    
+
+
     let topic = gossipsub::IdentTopic::new(pubsub_topic);
     gossipsub.subscribe(&topic).unwrap();
 
@@ -129,11 +142,11 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 let multiaddr: Multiaddr = format!("/ip4/{}/tcp/9000", ip)
                     .parse().unwrap();
 
-                println!("Dialing {:?}", multiaddr);
+                info!("Dialing {:?}", multiaddr);
                 match swarm.dial(multiaddr) {
                     Ok(_) => {
                         connected += 1;
-                        println!("Connected to node{}", peer_id_guess);
+                        info!("Connected to node{}", peer_id_guess);
                         break;
                     }
                     Err(_) => {
@@ -145,38 +158,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
         }
     }
 
-    println!("discovery complete");
-
-//    sleep(Duration::from_secs(45)).await;
-
-
-     
-//    loop{
-//        select!{
-//            event = swarm.select_next_some() => {
-//                match event{
-//                    SwarmEvent::NewListenAddr{address, ..} => {
-//                        println!("listening on {:?}", address);
-//                    }
-//                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-//                        propagation_source: peer_id,
-//                        message_id: id,
-//                        message,
-//                    })) => {
-//                        println!(
-//                            "Got message: {} with id: {} from peer: {:?}",
-//                            String::from_utf8_lossy(&message.data),
-//                            id,
-//                            peer_id
-//                        )
-//                    }
-//                    _ =>{
-//                        println!("event: {:?}",event);
-//                    }
-//                }
-//            }
-//        }
-//    }
+    info!("discovery complete");
 
     let mut published = false;
 
@@ -185,33 +167,38 @@ async fn main()-> Result<(), Box<dyn Error>>{
             event = swarm.select_next_some() => {
                 match event {
                     SwarmEvent::NewListenAddr{address, ..} => {
-                        println!("listening on {:?}", address);
+                        info!("listening on {:?}", address);
                     }
                     SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossip_event)) => {parse_gossip(gossip_event);}
-                    _ => { println!("random event")}
+                    _ => { info!("random event: {:?}", event)}
                 }
             }
         }
-        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.n {
+        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.target {
 
-            println!("trying to publish message");
-            for _ in 0..opts.n {
-                let mut msg = vec![0u8; opts.size];
-                rand::thread_rng().fill(&mut msg[..]);
+            info!("trying to publish message");
+            let mut msg = vec![0u8; opts.size];
+            rand::thread_rng().fill(&mut msg[..]);
 
-                match swarm.behaviour_mut().gossipsub.publish(topic.clone(), msg.clone()) {
-                    Ok(_) => {
-                        println!(
-                            "published msg (topic: {}, id: {})",
-                            topic,
-                            hex::encode(Sha256::digest(&msg))
-                        );
-                    }
-                    Err(e) => {
-                        eprintln!("failed to publish message: {:?}", e);
-                    }
+            match swarm
+                .behaviour_mut()
+                .gossipsub
+                .publish(topic.clone(), msg.clone()) {
+                Ok(message) => {
+                    info!(
+                        "published msg (topic: {}, id: {}, message: {})",
+                        topic,
+                        hex::encode(Sha256::digest(&msg)),
+                        message
+                    );
+                }
+                Err(e) => {
+                    info!("Number of peers in topic {}: {}", topic, swarm.connected_peers().count());
+
+                    info!("failed to publish message: {:?}", e);
                 }
             }
+            //info!("published");
             published = true;
         }
     }
@@ -220,11 +207,11 @@ async fn main()-> Result<(), Box<dyn Error>>{
 fn parse_gossip(event: gossipsub::Event){
 
     match event {
-        gossipsub::Event::Message { propagation_source, message_id, message } => { println!("event {:?}", message)}
-        gossipsub::Event::Subscribed { peer_id, topic } => { println!("subscribed: topic={:?}", topic)}
-        gossipsub::Event::Unsubscribed { peer_id, topic } => { println!("event {:?}", topic)}
-        gossipsub::Event::SlowPeer { peer_id, failed_messages } => { println!("event {:?}", peer_id)}
-        gossipsub::Event::GossipsubNotSupported { peer_id } => { println!("event {:?}", peer_id)}
-        
+        gossipsub::Event::Message { propagation_source, message_id, message } => { info!("event {:?}", message)}
+        gossipsub::Event::Subscribed { peer_id, topic } => { info!("subscribed: topic={:?}", topic)}
+        gossipsub::Event::Unsubscribed { peer_id, topic } => { info!("event {:?}", topic)}
+        gossipsub::Event::SlowPeer { peer_id, failed_messages } => { info!("event {:?}", peer_id)}
+        gossipsub::Event::GossipsubNotSupported { peer_id } => { info!("event {:?}", peer_id)}
+
     }
 }
