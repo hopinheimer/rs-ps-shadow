@@ -1,7 +1,7 @@
 use std::error::Error;
 use tracing::info;
 use chrono::Local;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use clap::Parser;
 use futures::StreamExt;
 use libp2p::{core, gossipsub, identity, noise, yamux, SwarmBuilder, Transport, PeerId, Multiaddr};
@@ -9,7 +9,8 @@ use libp2p::gossipsub::MessageAuthenticity;
 use std::net::ToSocketAddrs;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use tokio::select;
-use rand::Rng;
+use rand::rngs::{OsRng,StdRng};
+use rand::{Rng, SeedableRng};
 use sha2::{Digest, Sha256};
 use tracing_subscriber::EnvFilter;
 
@@ -161,6 +162,8 @@ async fn main()-> Result<(), Box<dyn Error>>{
     info!("discovery complete");
 
     let mut published = false;
+    let mut last_checked = Instant::now();
+    let mut rng = rand::thread_rng();
 
     loop {
         select!{
@@ -174,11 +177,32 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 }
             }
         }
-        if node_id == 0 && !published && swarm.connected_peers().count()>=opts.target {
+
+        let now = Instant::now();
+
+        if now.duration_since(last_checked)>= Duration::from_millis(150){
+            last_checked = now;
+
+            if rng.gen_range(1..=3) == 1 {
+                published = true;
+            }
+        }
+
+        if published && swarm.connected_peers().count()>=opts.target {
 
             info!("trying to publish message");
-            let mut msg = vec![0u8; opts.size];
-            rand::thread_rng().fill(&mut msg[..]);
+            // let mut msg = vec![0u8; opts.size];
+             //OsRng.fill(&mut msg[..]);
+
+            let seed = now.elapsed().as_nanos().to_le_bytes();  // u128 → 16 bytes
+            let mut seed32 = [0u8; 32];
+            seed32[..16].copy_from_slice(&seed);
+
+            // Create seeded RNG
+            let mut rng = StdRng::from_seed(seed32);
+
+            let mut msg = vec![0u8; 128];
+            rng.fill(&mut msg[..]);
 
             match swarm
                 .behaviour_mut()
@@ -199,7 +223,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                 }
             }
             //info!("published");
-            published = true;
+            published = false;
         }
     }
 }
