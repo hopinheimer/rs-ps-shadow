@@ -5,3 +5,6 @@ graph.gml
 shadow.yaml
 
 shadow-*
+
+./__pycache__
+

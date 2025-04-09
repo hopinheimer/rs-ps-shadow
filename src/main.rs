@@ -12,7 +12,12 @@ use tokio::select;
 use rand::rngs::{OsRng,StdRng};
 use rand::{Rng, SeedableRng};
 use sha2::{Digest, Sha256};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{prelude::*, registry::Registry, fmt, EnvFilter};
+use std::hash::{Hash, Hasher};
+use openssl::rand::rand_bytes;
+use std::collections::hash_map::DefaultHasher;
+use tracing::debug_span;
+mod writer;
 
 
 #[derive(Parser,Debug)]
@@ -61,6 +66,20 @@ fn get_node_id_from_hostname() -> u64 {
     node_id_str.parse::<u64>().expect("Hostname must be in format node{id}")
 }
 
+fn generate_seed_from_id(id: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    id.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn generate_random_message_with_seed(id: &str) -> [u8; 128] {
+    let seed = generate_seed_from_id(id);
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut msg = [0u8; 128];
+    rng.fill(&mut msg);
+    msg
+}
+
 #[tokio::main]
 async fn main()-> Result<(), Box<dyn Error>>{
     info!("simulation start time {}", Local::now().to_rfc3339());
@@ -75,10 +94,26 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
 
 
-    let _ = tracing_subscriber::fmt()
+   // let _ = tracing_subscriber::fmt()
+   //     .json()
+   //     .with_env_filter(EnvFilter::new("debug"))
+   //     .try_init();
+    //
+    //
+    //
+    let node_span = debug_span!("libp2p_gossipsub::behaviour", node_id  = node_id);
+    let _entered = node_span.enter(); // keep the span entered
+
+//    let node_id_layer = writer::NodeIdFieldLayer::<Registry>::new(node_id);
+
+    let subscriber = Registry::default()
+        .with(fmt::Layer::default()
         .json()
-        .with_env_filter(EnvFilter::new("debug"))
-        .try_init();
+        .with_current_span(true))
+        .with(EnvFilter::new("debug"));
+
+    tracing::subscriber::set_global_default(subscriber).expect("failed to set global subscriber");
+
 
     let private_key = identity::Keypair::generate_ed25519();
     let yamux_config = yamux::Config::default();
@@ -92,16 +127,23 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
 
     let mut gossipsub = {
+        let message_id_fn = |message: &gossipsub::Message| {
+            use sha2::{Sha256, Digest};
+            let hash = Sha256::digest(&message.data);
+            gossipsub::MessageId::from(hash.as_slice())
+};
 
         let gossipsub_config = gossipsub::ConfigBuilder::default() 
             .mesh_n(opts.d)
             .mesh_n_low(opts.d - 2)
+            .message_id_fn(message_id_fn)
             .mesh_n_high(opts.d + 4)
             .max_transmit_size(10*1024*1024)
             .heartbeat_interval(Duration::from_millis(opts.interval))
             .validation_mode(gossipsub::ValidationMode::Anonymous)
             .build()
             .expect("infallible");
+
 
         gossipsub::Behaviour::new(MessageAuthenticity::Anonymous, gossipsub_config).expect("yos?")
     };
@@ -188,20 +230,25 @@ async fn main()-> Result<(), Box<dyn Error>>{
             }
         }
 
-        if published && swarm.connected_peers().count()>=opts.target {
+        if  published && swarm.connected_peers().count()>=opts.target {
 
             info!("trying to publish message");
-            // let mut msg = vec![0u8; opts.size];
+            //let mut msg = vec![0u8; opts.size];
              //OsRng.fill(&mut msg[..]);
 
-            let seed = now.elapsed().as_nanos().to_le_bytes();  // u128 → 16 bytes
-            let mut seed32 = [0u8; 32];
-            seed32[..16].copy_from_slice(&seed);
-
-            // Create seeded RNG
-            let mut rng = StdRng::from_seed(seed32);
-
-            let mut msg = vec![0u8; 128];
+//            let seed = now.elapsed().as_nanos().to_le_bytes();  // u128 → 16 bytes
+//            let mut seed32 = [0u8; 32];
+//            seed32[..16].copy_from_slice(&seed);
+//
+//            // Create seeded RNG
+//            let mut rng = StdRng::from_seed(seed32);
+//
+//            let mut msg = vec![0u8; 128];
+//            rng.fill(&mut msg[..]);
+//
+            
+            let mut msg = [0u8;128];
+            rand_bytes(&mut msg).unwrap();
             rng.fill(&mut msg[..]);
 
             match swarm

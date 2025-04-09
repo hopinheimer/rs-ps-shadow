@@ -1,3 +1,5 @@
 general:
   model_unblocked_syscall_latency: true
   stop_time: 20 min
+experimental:
+  use_preload_openssl_rng: true
