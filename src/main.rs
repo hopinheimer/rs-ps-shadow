@@ -115,7 +115,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
     tracing::subscriber::set_global_default(subscriber).expect("failed to set global subscriber");
 
 
-
     let private_key = identity::Keypair::generate_ed25519();
     let yamux_config = yamux::Config::default();
 
@@ -250,15 +249,17 @@ async fn main()-> Result<(), Box<dyn Error>>{
             
             let mut msg = [0u8;128];
             rand_bytes(&mut msg).unwrap();
+            rng.fill(&mut msg[..]);
 
             match swarm
                 .behaviour_mut()
                 .gossipsub
-                .publish(topic.clone(), msg) {
+                .publish(topic.clone(), msg.clone()) {
                 Ok(message) => {
                     info!(
-                        "published msg (topic: {}, message: {})",
+                        "published msg (topic: {}, id: {}, message: {})",
                         topic,
+                        hex::encode(Sha256::digest(&msg)),
                         message
                     );
                 }

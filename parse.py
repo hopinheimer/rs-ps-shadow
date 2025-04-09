@@ -36,22 +36,21 @@ def push_metric(metric: str, labels: Dict[str, str], value: float):
     if resp.status_code not in (200, 202):
         print("Pushgateway error:", resp.status_code, resp.text)
 
-
 def push_event(timestamp, fields, node_id):
     global duplicate
     global published
     data_lines = []
     msg_text = fields.get("message", "")
-   
+
     if "Message already received" in msg_text:
         msg_id = fields.get("message_id")
         duplicate[msg_id] = duplicate.get(msg_id, 0) + 1
         if msg_id:
-            push_metric(f"duplicate_message_event_node{node_id}", {
-                "node": node_id,
-                "event": "received",
-                "msg_id": str(msg_id)
-            }, duplicate[msg_id])
+                push_metric(f"duplicate_message_event_node{node_id}", {
+                    "node": node_id,
+                    "event": "received",
+                    "msg_id": str(msg_id)
+                }, duplicate[msg_id])
 
             peer_message[f"node{node_id}"] = peer_message.get(
 
@@ -59,14 +58,14 @@ def push_event(timestamp, fields, node_id):
                 "event": "received",
                 "msg_id": str(msg_id)
             }, duplicate[msg_id])
-            
+
             if msg_id in published:
-                publish_history = published[msg_id]
-                print(published)
+        publish_history = published[msg_id]
+                    print(published)
 
                 push_metric("message_delivery_time", {
-                        "event": "received",
-                        "msg_id": str(msg_id)
+                    "event": "received",
+                    "msg_id": str(msg_id)
                 }, (timestamp - publish_history).total_seconds()*1000)
 
     elif "Published message" in msg_text:
@@ -77,8 +76,8 @@ def push_event(timestamp, fields, node_id):
                 "node": node_id,
                 "event": "published",
                 "msg_id": str(msg_id)
-            }, len(published.keys()))
-        
+            }, published[msg_id])
+
 ticker = Ticker()
 
 for line in sys.stdin:
