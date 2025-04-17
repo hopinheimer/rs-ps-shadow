@@ -3,7 +3,7 @@ import re
 import json
 from datetime import datetime
 from typing import Dict
-from influxdb import InfluxDBClient
+from influxdb_client_3 import InfluxDBClient3, Point
 from lru import LRUCache
 
 # LRU caches
@@ -13,10 +13,8 @@ total = 1
 current_nodes_reached = 1
 
 # InfluxDB connection parameters
-INFLUX_HOST = "localhost"
-INFLUX_PORT = 8086
-INFLUX_USER = "admin"
-INFLUX_PASSWORD = "admin"
+INFLUX_HOST = "http://localhost"
+INFLUX_PORT = 8181
 INFLUX_DBNAME = "metrics_db"
 
 def parse_timestamp(ts: str):
@@ -32,11 +30,8 @@ def get_influx_connection():
     
     for attempt in range(max_retries):
         try:
-            client = InfluxDBClient(
+            client = InfluxDBClient3(
                 host=INFLUX_HOST,
-                port=INFLUX_PORT,
-                username=INFLUX_USER,
-                password=INFLUX_PASSWORD,
                 database=INFLUX_DBNAME
             )
             return client
@@ -50,33 +45,14 @@ def get_influx_connection():
                 raise
 
 def initialize_db():
+
+    print("init db")
     """Create the InfluxDB database and retention policies."""
-    client = InfluxDBClient(
+    client = InfluxDBClient3(
         host=INFLUX_HOST,
-        port=INFLUX_PORT,
-        username=INFLUX_USER,
-        password=INFLUX_PASSWORD
+        database=INFLUX_DBNAME
     )
     
-    # Check if database exists, if not create it
-    dbs = client.get_list_database()
-    if {"name": INFLUX_DBNAME} not in dbs:
-        client.create_database(INFLUX_DBNAME)
-        print(f"Created database: {INFLUX_DBNAME}")
-    
-    # Switch to the database
-    client.switch_database(INFLUX_DBNAME)
-    
-    # Create retention policy (optional)
-    client.create_retention_policy(
-        name='standard_retention',
-        duration='30d',
-        replication=1,
-        database=INFLUX_DBNAME,
-        default=True
-    )
-    
-    print("Database initialized successfully")
     return client
 
 def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp: datetime):
@@ -119,7 +95,6 @@ def push_event(timestamp, fields, node_id):
     global duplicate
     global published
     global current_nodes_reached
-    global total
     
     msg_text = fields.get("message", "")
     
@@ -158,15 +133,12 @@ def push_event(timestamp, fields, node_id):
                 "node": node_id,
                 "event": "published",
                 "msg_id": str(msg_id)
-            }, 1, timestamp)  # Using 1 as value to indicate occurrence
+            }, 1, timestamp)  
 
 # Initialize the database when the script starts
-try:
-    print("initializing metric params")
-    total = 100
-    initialize_db()
-except Exception as e:
-    print(f"Failed to initialize database: {e}")
+print("initializing metric params")
+total = 100
+initialize_db()
 
 # Process input lines
 for line in sys.stdin:
