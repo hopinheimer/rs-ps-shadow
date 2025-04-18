@@ -1,4 +1,5 @@
 import sys
+import os
 import re
 import json
 from datetime import datetime
@@ -6,16 +7,16 @@ from typing import Dict
 from influxdb_client_3 import InfluxDBClient3, Point
 from lru import LRUCache
 
-# LRU caches
 duplicate = LRUCache(capacity=50)
 published = LRUCache(capacity=50)
 total = 1
 current_nodes_reached = 1
 
-# InfluxDB connection parameters
-INFLUX_HOST = "http://localhost"
-INFLUX_PORT = 8181
-INFLUX_DBNAME = "metrics_db"
+INFLUX_HOST = "http://localhost:8181"
+INFLUX_DBNAME = "metric_db"
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
+INFLUX_ORG = os.getenv("INFLUX_ORG")
+INFLUX_HOST = os.getenv("INFLUX_HOST")
 
 def parse_timestamp(ts: str):
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -24,7 +25,6 @@ def current_message_dissemination_rate():
     return (current_nodes_reached/total)*100
 
 def get_influx_connection():
-    """Create and return a connection to the InfluxDB database."""
     max_retries = 5
     retry_delay = 2  # seconds
     
@@ -32,9 +32,10 @@ def get_influx_connection():
         try:
             client = InfluxDBClient3(
                 host=INFLUX_HOST,
+                token=INFLUX_TOKEN,
                 database=INFLUX_DBNAME
             )
-            return client
+            return client  
         except Exception as e:
             if attempt < max_retries - 1:
                 print(f"Connection attempt {attempt+1} failed, retrying in {retry_delay} seconds...")
@@ -46,17 +47,15 @@ def get_influx_connection():
 
 def initialize_db():
 
-    print("init db")
-    """Create the InfluxDB database and retention policies."""
     client = InfluxDBClient3(
         host=INFLUX_HOST,
+        token=INFLUX_TOKEN,
         database=INFLUX_DBNAME
     )
     
     return client
 
 def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp: datetime):
-    """Store metric in InfluxDB."""
     try:
         client = get_influx_connection()
         
@@ -71,7 +70,6 @@ def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp
             print(f"Unknown metric type: {metric}")
             return
         
-        # Create the InfluxDB point
         point = {
             "measurement": measurement,
             "tags": {
@@ -85,8 +83,7 @@ def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp
             }
         }
         
-        # Write the point to InfluxDB
-        client.write_points([point])
+        client.write(database=INFLUX_DBNAME, record=point)
         client.close()
     except Exception as e:
         print(f"Error pushing metric to InfluxDB: {e}")
@@ -107,7 +104,7 @@ def push_event(timestamp, fields, node_id):
                 "node": node_id,
                 "event": "received",
                 "msg_id": str(msg_id)
-            }, 1, timestamp)  # Using 1 as value to indicate occurrence
+            }, 1, timestamp)  
             
     elif "Put message in duplicate_cache" in msg_text:
         print("pushing message in dup")
@@ -135,12 +132,10 @@ def push_event(timestamp, fields, node_id):
                 "msg_id": str(msg_id)
             }, 1, timestamp)  
 
-# Initialize the database when the script starts
 print("initializing metric params")
 total = 100
 initialize_db()
 
-# Process input lines
 for line in sys.stdin:
     try:
         entry = json.loads(line)
