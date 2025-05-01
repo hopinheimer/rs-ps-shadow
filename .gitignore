@@ -6,5 +6,9 @@ shadow.yaml
 
 shadow-*
 
-./__pycache__
+__pycache__
+
+/influxdb
+
+.venv
 

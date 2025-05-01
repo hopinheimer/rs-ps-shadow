@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: influxdb
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8181
+    jsonData:
+      version: SQL
+      dbName: metric_db
+      httpMode: POST
+      tlsSkipVerify: true
+      insecureGrpc: true

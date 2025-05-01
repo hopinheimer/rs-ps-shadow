@@ -12,8 +12,8 @@ published = LRUCache(capacity=50)
 total = 1
 current_nodes_reached = 1
 
-INFLUX_HOST = "http://localhost:8181"
-INFLUX_DBNAME = "metric_db"
+influx_host = "http://localhost:8181"
+influx_dbname = "metric_db"
 INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
 INFLUX_ORG = os.getenv("INFLUX_ORG")
 INFLUX_HOST = os.getenv("INFLUX_HOST")
@@ -26,17 +26,18 @@ def current_message_dissemination_rate():
 
 def get_influx_connection():
     max_retries = 5
-    retry_delay = 2  # seconds
+    retry_delay = 2 
     
     for attempt in range(max_retries):
         try:
             client = InfluxDBClient3(
-                host=INFLUX_HOST,
-                token=INFLUX_TOKEN,
-                database=INFLUX_DBNAME
+                host=influx_host,
+                database=influx_dbname
             )
+            print(f"init db connection host={influx_host} dbname={influx_dbname}") 
             return client  
         except Exception as e:
+            print(e)
             if attempt < max_retries - 1:
                 print(f"Connection attempt {attempt+1} failed, retrying in {retry_delay} seconds...")
                 import time
@@ -48,9 +49,8 @@ def get_influx_connection():
 def initialize_db():
 
     client = InfluxDBClient3(
-        host=INFLUX_HOST,
-        token=INFLUX_TOKEN,
-        database=INFLUX_DBNAME
+        host=influx_host,
+        database=influx_dbname
     )
     
     return client
@@ -59,7 +59,6 @@ def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp
     try:
         client = get_influx_connection()
         
-        # Determine which measurement to use based on metric type
         if "duplicate_message_event" in metric:
             measurement = "duplicate_message_events"
         elif metric == "published_message_event":
@@ -83,7 +82,7 @@ def push_metric(metric: str, labels: Dict[str, str], value: float, log_timestamp
             }
         }
         
-        client.write(database=INFLUX_DBNAME, record=point)
+        client.write(database=influx_dbname, record=point)
         client.close()
     except Exception as e:
         print(f"Error pushing metric to InfluxDB: {e}")

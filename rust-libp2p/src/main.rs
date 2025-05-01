@@ -56,10 +56,6 @@ fn deterministic_keypair(id: u64) -> identity::Keypair {
 
 }
 
-fn reconstruct_peer_id(id: u64) -> PeerId {
-    PeerId::from(deterministic_keypair(id).public())
-}
-
 fn get_node_id_from_hostname() -> u64 {
     let hostname = hostname::get().unwrap().to_str().unwrap().to_string();
     let node_id_str = hostname.trim_start_matches("node");
@@ -92,19 +88,9 @@ async fn main()-> Result<(), Box<dyn Error>>{
     let local_peer_id = PeerId::from(id_keys.public());
     info!("Local peer id: {:?}", local_peer_id);
 
-
-
-   // let _ = tracing_subscriber::fmt()
-   //     .json()
-   //     .with_env_filter(EnvFilter::new("debug"))
-   //     .try_init();
-    //
-    //
-    //
     let node_span = debug_span!("libp2p_gossipsub::behaviour", node_id  = node_id);
-    let _entered = node_span.enter(); // keep the span entered
+    let _entered = node_span.enter(); 
 
-//    let node_id_layer = writer::NodeIdFieldLayer::<Registry>::new(node_id);
 
     let subscriber = Registry::default()
         .with(fmt::Layer::default()
@@ -203,7 +189,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
     info!("discovery complete");
 
-    let mut published = false;
+    let mut published = true;
     let mut last_checked = Instant::now();
     let mut rng = rand::thread_rng();
 
@@ -230,22 +216,9 @@ async fn main()-> Result<(), Box<dyn Error>>{
             }
         }
 
-        if  published && swarm.connected_peers().count()>=opts.target {
+        if node_id==0 &&  published && swarm.connected_peers().count()>=opts.target {
 
             info!("trying to publish message");
-            //let mut msg = vec![0u8; opts.size];
-             //OsRng.fill(&mut msg[..]);
-
-//            let seed = now.elapsed().as_nanos().to_le_bytes();  // u128 → 16 bytes
-//            let mut seed32 = [0u8; 32];
-//            seed32[..16].copy_from_slice(&seed);
-//
-//            // Create seeded RNG
-//            let mut rng = StdRng::from_seed(seed32);
-//
-//            let mut msg = vec![0u8; 128];
-//            rng.fill(&mut msg[..]);
-//
             
             let mut msg = [0u8;128];
             rand_bytes(&mut msg).unwrap();
@@ -269,7 +242,7 @@ async fn main()-> Result<(), Box<dyn Error>>{
                     info!("failed to publish message: {:?}", e);
                 }
             }
-            //info!("published");
+            info!("published");
             published = false;
         }
     }

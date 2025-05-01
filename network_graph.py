@@ -1,4 +1,9 @@
-# usage: python network_graph.py [node-count]
+'''
+This code implementation was source from 
+pubsub [https://github.com/hopinheimer/pubsub-shadow]
+
+and changed accordingly
+                         '''
 from dataclasses import dataclass
 import random
 import networkx as nx
