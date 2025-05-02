@@ -48,6 +48,10 @@ supernode = NodeType("supernode", 1024, 1024, 20)
 fullnode = NodeType("fullnode", 50, 50, 80)
 node_types = [supernode, fullnode]
 
+RUST_BIN_DIR = "./rust-libp2p/bin/rust-pubsub"
+GO_BIN_DIR = "./go-libp2p/bin/go-pubsub"
+
+
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
 
 edges = [
@@ -175,13 +179,15 @@ for i in range(node_count):
         node_type = supernode
     else:
         node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]
+    
+    libp2p_bin = random.choice([RUST_BIN_DIR, GO_BIN_DIR])
 
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
             "args": f"--count {node_count} --target {target_conn} --n {num_msgs} --size {msg_size} --d {d_mesh} --interval {interval}",
             "expected_final_state": "running",
-            "path": "./target/debug/rs-ps-shadow",
+            "path": f"{libp3p_bin}",
         }],
     }
 

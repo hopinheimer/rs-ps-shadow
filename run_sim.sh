@@ -2,7 +2,7 @@
 
 set -e
 
-cargo build 
+make all
 
 D=8
 kb=1024

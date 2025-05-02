@@ -6,7 +6,7 @@ BINARY_NAME_GO = go-pubsub
 
 RUST_SOURCE_DIR = rust-libp2p
 GO_SOURCE_DIR = go-libp2p
-GO_SOURCE_PATH = ./cmd/pubsub
+GO_SOURCE_PATH = .
 
 all: rust-pubsub go-pubsub
 
