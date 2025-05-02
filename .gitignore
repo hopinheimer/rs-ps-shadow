@@ -12,3 +12,6 @@ __pycache__
 
 .venv
 
+go-libp2p/go-libp2p/bin/pubsub/go-pubsub
+rust-libp2p/target
+go-libp2p/go.sum
