@@ -17,7 +17,6 @@ use std::hash::{Hash, Hasher};
 use openssl::rand::rand_bytes;
 use std::collections::hash_map::DefaultHasher;
 use tracing::debug_span;
-mod writer;
 
 
 #[derive(Parser,Debug)]
