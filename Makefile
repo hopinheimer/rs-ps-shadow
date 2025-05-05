@@ -41,7 +41,16 @@ go-pubsub:
 	@echo "Finished building go-libp2p pubsub"
 
 clean:
-	@echo "building built executables"
+	@echo "cleaning built executables and shutting down docker env"
 	@rm -f $(RUST_OUTPUT_DIR)/$(BINARY_NAME_RUST)
 	@rm -f $(GO_OUTPUT_DIR)/$(BINARY_NAME_GO)
+	docker compose down
 	@echo "Clean complete."
+
+stop:
+	@echo "Stopping any running processes..."
+	docker compose down
+	@echo "Shutdown complete."
+
+.INTERRUPT: stop
+

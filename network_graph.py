@@ -187,7 +187,7 @@ for i in range(node_count):
         "processes": [{
             "args": f"--count {node_count} --target {target_conn} --n {num_msgs} --size {msg_size} --d {d_mesh} --interval {interval}",
             "expected_final_state": "running",
-            "path": f"{libp3p_bin}",
+            "path": f"{libp2p_bin}",
         }],
     }
 
