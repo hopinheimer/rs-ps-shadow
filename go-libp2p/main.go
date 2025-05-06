@@ -28,7 +28,7 @@ const (
 var (
 	nodeCount       = flag.Int("count", 5000, "the number of nodes in the network")
 	targetPeers     = flag.Int("target", 70, "the target number of connected peers")
-	gossipD         = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	gossipD         = flag.Int("d", 8, "mesh degree for gossipsub topics")
 	heartbeatInterval = flag.Int("interval", 700, "heartbeat interval in milliseconds")
 	messageSize     = flag.Int("size", 32, "message size in bytes")
 	numMessages     = flag.Int("n", 1, "number of messages published at the same time")

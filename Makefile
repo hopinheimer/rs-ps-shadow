@@ -1,5 +1,5 @@
 RUST_OUTPUT_DIR = rust-libp2p/bin/pubsub
-GO_OUTPUT_DIR = go-libp2p/bin/pubsub
+GO_OUTPUT_DIR = bin/pubsub
 
 BINARY_NAME_RUST = rust-pubsub
 BINARY_NAME_GO = go-pubsub

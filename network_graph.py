@@ -48,8 +48,8 @@ supernode = NodeType("supernode", 1024, 1024, 20)
 fullnode = NodeType("fullnode", 50, 50, 80)
 node_types = [supernode, fullnode]
 
-RUST_BIN_DIR = "./rust-libp2p/bin/rust-pubsub"
-GO_BIN_DIR = "./go-libp2p/bin/go-pubsub"
+RUST_BIN_DIR = "./rust-libp2p/bin/pubsub/rust-pubsub"
+GO_BIN_DIR = "./go-libp2p/bin/pubsub/go-pubsub"
 
 
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
