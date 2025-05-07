@@ -20,63 +20,44 @@ import (
 )
 
 const (
-	// The name of the pubsub topic to join.
-	topicName = "foobar"
+	topicName = "pubsub"
 
-	// The network port to listen on.
 	listenPort = 9000
 )
 
 var (
-	// Command-line flags for configuration.
 	nodeCount       = flag.Int("count", 5000, "the number of nodes in the network")
 	targetPeers     = flag.Int("target", 70, "the target number of connected peers")
-	gossipD         = flag.Int("D", 8, "mesh degree for gossipsub topics")
-	gossipDAnnounce = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	gossipD         = flag.Int("d", 8, "mesh degree for gossipsub topics")
 	heartbeatInterval = flag.Int("interval", 700, "heartbeat interval in milliseconds")
 	messageSize     = flag.Int("size", 32, "message size in bytes")
 	numMessages     = flag.Int("n", 1, "number of messages published at the same time")
 )
 
-// configureGossipParams creates a custom gossipsub parameter set based on flags.
 func configureGossipParams() pubsub.GossipSubParams {
-	// Start with the default parameters.
 	params := pubsub.DefaultGossipSubParams()
 
-	// Customize parameters based on command-line flags.
 	params.Dlo = *gossipD - 2
 	params.D = *gossipD
 	params.Dhi = *gossipD + 4
-	params.Timeout = 1000 * time.Millisecond
 	params.HeartbeatInterval = time.Duration(*heartbeatInterval) * time.Millisecond
 	params.HistoryLength = 6
 	params.HistoryGossip = 3
-	params.Dannounce = *gossipDAnnounce
 
 	return params
 }
 
-// configurePubsubOptions creates a list of options to configure the pubsub router.
 func configurePubsubOptions() []pubsub.Option {
-	// Define pubsub options.
 	options := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
-		// Use a custom message ID function.
 		pubsub.WithMessageIdFn(func(pmsg *pubsubpb.Message) string {
-			// Assuming CalcID is defined elsewhere and computes an ID from message data.
-			// (Note: CalcID is not provided in the original extract, assuming it exists.)
 			return CalcID(pmsg.Data)
 		}),
 		pubsub.WithPeerOutboundQueueSize(600),
-		pubsub.WithMaxMessageSize(10 * 1 << 20), // 10 MB
+		pubsub.WithMaxMessageSize(10 * 1 << 20), 
 		pubsub.WithValidateQueueSize(600),
-		// Apply the custom gossip parameters.
 		pubsub.WithGossipSubParams(configureGossipParams()),
-		// Use custom tracers (assuming gossipTracer and eventTracer are defined elsewhere).
-		// (Note: gossipTracer and eventTracer are not provided in the original extract, assuming they exist.)
-		pubsub.WithRawTracer(gossipTracer{}),
-		pubsub.WithEventTracer(eventTracer{}),
 	}
 
 	return options
@@ -226,15 +207,6 @@ func main() {
 
 	log.Printf("Achieved target of %d connected peers.", len(host.Network().Peers()))
 
-	// Synchronize publishing time.
-	// Wait until exactly 00:02:00 UTC on a notional date (Jan 1st, 2000).
-	// This is likely for simulation timing purposes.
-	targetPublishTime := time.Date(2000, time.January, 1, 0, 2, 0, 0, time.UTC)
-	log.Printf("Waiting until %s UTC to potentially publish...", targetPublishTime.Format(time.RFC3339))
-	time.Sleep(time.Until(targetPublishTime))
-	log.Println("Synchronization complete.")
-
-	// If the current node is node 0, publish messages.
 	if currentNodeID == 0 {
 		log.Printf("Node %d is the designated publisher. Publishing %d message(s)...", currentNodeID, *numMessages)
 		for i := 0; i < *numMessages; i++ {
@@ -298,12 +270,3 @@ func CalcID(data []byte) string {
 	return fmt.Sprintf("%x", data)
 }
 
-// Placeholder for tracer types. Replace with the actual implementations if needed.
-// These are assumed to exist in the original code for tracing purposes.
-type gossipTracer struct{}
-
-func (gossipTracer) Trace(evt *pubsubpb.TraceEvent) {}
-
-type eventTracer struct{}
-
-func (eventTracer) Trace(evt *pubsub.TraceEvent) {}
