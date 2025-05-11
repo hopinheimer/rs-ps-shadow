@@ -1,4 +1,4 @@
-go-libp2p/go.sum
+
 /rust-lib2p/target
 
 graph.gml
@@ -13,8 +13,8 @@ __pycache__
 
 .venv
 
-go-libp2p/go-libp2p/bin/pubsub/go-pubsub
-rust-libp2p/target
-go-libp2p/go.sum
-rust-libp2p/bin/pubsub/rust-pubsub
 go-libp2p/bin/
+go-libp2p/go.sum
+rust-libp2p/target/
+rust-libp2p/bin/
+bin/
