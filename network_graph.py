@@ -48,8 +48,8 @@ supernode = NodeType("supernode", 1024, 1024, 20)
 fullnode = NodeType("fullnode", 50, 50, 80)
 node_types = [supernode, fullnode]
 
-RUST_BIN_DIR = "./rust-libp2p/bin/rust-pubsub"
-GO_BIN_DIR = "./go-libp2p/bin/go-pubsub"
+RUST_BIN_DIR = "./rust-libp2p/bin/pubsub/rust-pubsub"
+GO_BIN_DIR = "./go-libp2p/bin/pubsub/go-pubsub"
 
 
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
@@ -134,6 +134,7 @@ msg_size = int(sys.argv[3])
 num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
 interval = int(sys.argv[6])
+yaml_file  = string(sys.argv[6])
 
 ids = {}
 for node_type in node_types:
@@ -187,7 +188,7 @@ for i in range(node_count):
         "processes": [{
             "args": f"--count {node_count} --target {target_conn} --n {num_msgs} --size {msg_size} --d {d_mesh} --interval {interval}",
             "expected_final_state": "running",
-            "path": f"{libp3p_bin}",
+            "path": f"{libp2p_bin}",
         }],
     }
 

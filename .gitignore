@@ -1,4 +1,4 @@
-go-libp2p/go.sum
+
 /rust-lib2p/target
 
 graph.gml
@@ -12,4 +12,9 @@ __pycache__
 /influxdb
 
 .venv
+
+go-libp2p/bin/
+go-libp2p/go.sum
 rust-libp2p/target/
+rust-libp2p/bin/
+bin/
