@@ -89,7 +89,20 @@ class GoHandler(JsonHandler):
     
     def process(self, data: Dict[Any, Any]) -> Any:
         timestamp = parse_timestamp(data.get("timestamp"))
+        node_id = data.get("node_id")
         
+        point = InfluxPoint(
+            measurement="message_delivery_time",
+            labels={
+                "node": data.get("node_id"),
+                "event": "received",
+                "msg_id": data.get("message_id")
+            },
+            value=1,
+            log_timestamp=timestamp
+        )
+        return point
+
 
 class RustHandler(JsonHandler):
     def can_handle(self, data: Dict[Any, Any]) -> bool:

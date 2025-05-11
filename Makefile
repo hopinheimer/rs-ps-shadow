@@ -36,7 +36,6 @@ rust-pubsub:
 
 go-pubsub:
 	@echo "building go-libp2p"
-	@mkdir -p $(GO_OUTPUT_DIR)
 	cd $(GO_SOURCE_DIR) && go build -o $(GO_OUTPUT_DIR)/$(BINARY_NAME_GO) $(GO_SOURCE_PATH)
 	@echo "Finished building go-libp2p pubsub"
 
