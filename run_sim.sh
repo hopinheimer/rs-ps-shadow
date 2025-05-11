@@ -9,7 +9,7 @@ kb=1024
 result=$((kb * 1024))
 filename=shadow-$kb
 interval=700
-python3 network_graph.py 80 20 $result 1 $D $interval
+python3 network_graph.py 80 20 $result 1 $D $interval "gosim.yaml"
 
 shadow --progress true -d $filename.data shadow.yaml
 #tar -czf $filename.tar.gz $filename.data

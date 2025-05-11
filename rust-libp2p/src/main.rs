@@ -135,7 +135,6 @@ async fn main()-> Result<(), Box<dyn Error>>{
 
     let pubsub_topic = "pubsub";
 
-
     let topic = gossipsub::IdentTopic::new(pubsub_topic);
     gossipsub.subscribe(&topic).unwrap();
 

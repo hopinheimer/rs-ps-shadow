@@ -134,6 +134,7 @@ msg_size = int(sys.argv[3])
 num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
 interval = int(sys.argv[6])
+yaml_file  = string(sys.argv[6])
 
 ids = {}
 for node_type in node_types:
